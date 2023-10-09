@@ -1,0 +1,40 @@
+
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
+
+import java.util.ArrayList;
+
+public class MainDS {
+    public static void main(String[] args) {
+        try {
+            XMLReader xmlReader = XMLReaderFactory.createXMLReader();
+
+            CDHandler handler = new CDHandler();
+
+            xmlReader.setContentHandler(handler);
+
+            xmlReader.parse("src\\cd_catalog.xml");
+
+            // Calcular la media y la desviación estándar
+            ArrayList<Double> prices = handler.getPrices();
+            double suma = 0.0;
+            for (Double price : prices) {
+                suma += price;
+            }
+            double media = suma / prices.size();
+
+            double sumaC = 0.0;
+            for (Double price : prices) {
+                sumaC += Math.pow(price - media, 2);
+            }
+            double varianza = sumaC / (prices.size() - 1);
+            double DesviacionE = Math.sqrt(varianza);
+
+            // Imprimir resultados
+            System.out.println("Media de precios: " + media);
+            System.out.println("Desviacion estandar de precios: " + DesviacionE);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
