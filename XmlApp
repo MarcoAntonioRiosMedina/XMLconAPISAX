@@ -10,6 +10,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
+import org.xml.sax.InputSource;
+import java.io.StringReader;
 
 public class XmlApp extends JFrame {
     private JTable table;
@@ -51,33 +53,45 @@ public class XmlApp extends JFrame {
             tableModel.setRowCount(0);
 
             SAXParserFactory factory = SAXParserFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
             SAXParser saxParser = factory.newSAXParser();
             DefaultHandler handler = new DefaultHandler() {
+                private StringBuilder currentValue;
                 private String currentElement;
                 private String[] rowData;
 
-                public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
-                    if ("CD".equals(qName)) {
+                @Override
+                public void startElement(String uri, String localName, String qName, Attributes attributes)
+                        throws SAXException {
+                    if ("CATALOG".equals(qName)) {
+                        String[] columns = {"TITLE", "ARTIST", "COUNTRY", "COMPANY", "PRICE", "YEAR"};
+                        tableModel.setColumnIdentifiers(columns);
+                    } else if ("CD".equals(qName)) {
                         rowData = new String[tableModel.getColumnCount()];
                     }
                     currentElement = qName;
+                    currentValue = new StringBuilder();
                 }
 
+                @Override
                 public void characters(char[] ch, int start, int length) throws SAXException {
-                    if (currentElement != null) {
-                        String value = new String(ch, start, length);
-                        int columnIndex = tableModel.findColumn(currentElement);
-                        if (columnIndex >= 0) {
-                            rowData[columnIndex] = value;
-                        }
+                    if (currentValue != null) {
+                        currentValue.append(ch, start, length);
                     }
                 }
 
+                @Override
                 public void endElement(String uri, String localName, String qName) throws SAXException {
                     if ("CD".equals(qName)) {
                         tableModel.addRow(rowData);
-                        currentElement = null;
+                    } else if (currentElement != null) {
+                        int columnIndex = tableModel.findColumn(currentElement);
+                        if (columnIndex >= 0) {
+                            rowData[columnIndex] = currentValue.toString().trim();
+                        }
                     }
+                    currentElement = null;
+                    currentValue = null;
                 }
             };
 
