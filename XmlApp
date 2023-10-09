@@ -1,14 +1,15 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import org.xml.sax.Attributes;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+import java.io.IOException;
 
 public class XmlApp extends JFrame {
     private JTable table;
@@ -47,43 +48,40 @@ public class XmlApp extends JFrame {
 
     private void cargarXML(File archivo) {
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            // Deshabilitar la validación del DTD
-            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(archivo);
             tableModel.setRowCount(0);
 
-            NodeList cdList = doc.getElementsByTagName("CD");
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParser saxParser = factory.newSAXParser();
+            DefaultHandler handler = new DefaultHandler() {
+                private String currentElement;
+                private String[] rowData;
 
-            if (cdList.getLength() > 0) {
-                Element firstCD = (Element) cdList.item(0);
-                NodeList childNodes = firstCD.getChildNodes();
-
-                for (int i = 0; i < childNodes.getLength(); i++) {
-                    if (childNodes.item(i) instanceof Element) {
-                        String columnName = childNodes.item(i).getNodeName();
-                        tableModel.addColumn(columnName);
+                public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+                    if ("CD".equals(qName)) {
+                        rowData = new String[tableModel.getColumnCount()];
                     }
+                    currentElement = qName;
                 }
-            }
 
-            for (int i = 0; i < cdList.getLength(); i++) {
-                Element cd = (Element) cdList.item(i);
-                NodeList cdData = cd.getChildNodes();
-
-                String[] rowData = new String[tableModel.getColumnCount()];
-
-                for (int j = 0; j < cdData.getLength(); j++) {
-                    if (cdData.item(j) instanceof Element) {
-                        String columnName = cdData.item(j).getNodeName();
-                        String columnValue = cdData.item(j).getTextContent();
-                        rowData[tableModel.findColumn(columnName)] = columnValue;
+                public void characters(char[] ch, int start, int length) throws SAXException {
+                    if (currentElement != null) {
+                        String value = new String(ch, start, length);
+                        int columnIndex = tableModel.findColumn(currentElement);
+                        if (columnIndex >= 0) {
+                            rowData[columnIndex] = value;
+                        }
                     }
                 }
 
-                tableModel.addRow(rowData);
-            }
+                public void endElement(String uri, String localName, String qName) throws SAXException {
+                    if ("CD".equals(qName)) {
+                        tableModel.addRow(rowData);
+                        currentElement = null;
+                    }
+                }
+            };
+
+            saxParser.parse(archivo, handler);
 
             tableModel.fireTableDataChanged();
         } catch (Exception ex) {
@@ -91,5 +89,5 @@ public class XmlApp extends JFrame {
             JOptionPane.showMessageDialog(this, "Error al cargar el archivo XML", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
 }
+
